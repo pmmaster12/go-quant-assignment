@@ -1,0 +1,2 @@
+mkdir -p src/models src/websocket src/ui src/utils tests 
+trade_simulator.log
