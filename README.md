@@ -1,203 +1,248 @@
-# GoQuant Trade Simulator
+# High-Performance Trade Simulator
 
-A high-performance trade simulator that leverages real-time market data to estimate transaction costs and market impact for cryptocurrency trading.
-
-## Features
-
-- Real-time L2 orderbook data processing
-- Sophisticated market impact modeling using Almgren-Chriss
-- Slippage prediction using quantile regression
-- Fee calculation based on OKX fee tiers
-- Maker/Taker proportion prediction
-- Latency measurement and monitoring
-- Modern PyQt5-based user interface
+A real-time trade simulator that processes market data and calculates various trading metrics using sophisticated models.
 
 ## Architecture
 
-The simulator is built with a modular architecture consisting of several key components:
+### System Overview
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  WebSocket      │     │  Data           │     │  UI             │
+│  Client         │────▶│  Processor      │────▶│  Components     │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                       │                        │
+        │                       │                        │
+        ▼                       ▼                        ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Market         │     │  Trading        │     │  Performance    │
+│  Models         │     │  Metrics        │     │  Monitor        │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
 
-### Core Components
+### Data Flow
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│  WebSocket  │    │  Data       │    │  Trading    │    │  UI         │
+│  Message    │───▶│  Queue      │───▶│  Models     │───▶│  Update     │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+       │                 │                   │                  │
+       │                 │                   │                  │
+       ▼                 ▼                   ▼                  ▼
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│  Validation │    │  Processing │    │  Metrics    │    │  Display    │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+```
+
+### Components
 
 1. **WebSocket Client**
-   - Connects to OKX's WebSocket API
-   - Processes real-time L2 orderbook data
-   - Implements automatic reconnection
-   - Measures network latency
+   ```python
+   class OrderbookClient:
+       def __init__(self, url: str, callback: Callable):
+           self.url = url
+           self.callback = callback
+           self.running = True
+           self.reconnect_delay = 1.0
+           self.max_reconnect_delay = 30.0
+           self.last_message_time = 0
+           self.heartbeat_interval = 30
 
-2. **Market Impact Model**
-   - Implements Almgren-Chriss model
-   - Calculates temporary and permanent market impact
-   - Optimizes execution schedule
-   - Considers volatility and order size
+       async def connect(self):
+           while self.running:
+               try:
+                   async with websockets.connect(
+                       self.url,
+                       ping_interval=20,
+                       ping_timeout=10,
+                       close_timeout=5
+                   ) as ws:
+                       self.ws = ws
+                       while self.running:
+                           message = await ws.recv()
+                           self.callback(json.loads(message))
+               except Exception as e:
+                   await asyncio.sleep(self.reconnect_delay)
+                   self.reconnect_delay = min(
+                       self.reconnect_delay * 2,
+                       self.max_reconnect_delay
+                   )
+   ```
 
-3. **Slippage Model**
-   - Uses quantile regression for prediction
-   - Considers orderbook depth and imbalance
-   - Adapts to market conditions
-   - Provides confidence intervals
+2. **Data Processor**
+   ```python
+   def process_orderbook_data(self, data: dict):
+       # Validate and normalize orderbook data
+       asks = [(float(price), float(qty)) 
+              for price, qty in data.get('asks', [])
+              if float(price) > 0 and float(qty) > 0]
+       bids = [(float(price), float(qty))
+              for price, qty in data.get('bids', [])
+              if float(price) > 0 and float(qty) > 0]
+       
+       # Sort and validate
+       asks.sort(key=lambda x: x[0])
+       bids.sort(key=lambda x: x[0], reverse=True)
+       
+       # Detect and handle outliers
+       self._handle_price_gaps(asks, bids)
+       
+       return asks, bids
+   ```
 
-4. **Fee Calculator**
-   - Implements OKX's fee tier structure
-   - Calculates maker/taker fees
-   - Supports volume-based tier selection
-   - Handles different order types
+3. **Trading Models**
 
-5. **Maker/Taker Predictor**
-   - Uses logistic regression
-   - Considers orderbook features
-   - Adapts to market conditions
-   - Provides probability estimates
+   a. **Slippage Model**
+   ```python
+   class SlippageModel:
+       def __init__(self):
+           self.model = QuantileRegressor(
+               quantiles=[0.1, 0.5, 0.9],
+               solver='highs'
+           )
+           
+       def predict_slippage(self, asks, bids, quantity):
+           features = self._extract_features(asks, bids, quantity)
+           return self.model.predict(features)
+           
+       def _extract_features(self, asks, bids, quantity):
+           return {
+               'spread': (asks[0][0] - bids[0][0]) / bids[0][0],
+               'imbalance': self._calculate_imbalance(asks, bids),
+               'depth': self._calculate_depth(asks, bids),
+               'quantity_ratio': quantity / self._total_volume(asks, bids)
+           }
+   ```
 
-### User Interface
+   b. **Market Impact Model**
+   ```python
+   class AlmgrenChrissModel:
+       def __init__(self, volatility=0.02):
+           self.volatility = volatility
+           self.eta = 0.1  # Temporary impact
+           self.gamma = 0.01  # Permanent impact
+           
+       def calculate_market_impact(self, quantity, price, time_horizon):
+           # Temporary impact
+           temp_impact = self.eta * (quantity/self.volume) * \
+                        math.sqrt(quantity/time_horizon)
+           
+           # Permanent impact
+           perm_impact = self.gamma * (quantity/self.volume)
+           
+           return temp_impact, perm_impact
+   ```
 
-The UI is built with PyQt5 and features:
+## Performance Monitoring
 
-- Left panel: Input parameters
-  - Exchange selection
-  - Asset selection
-  - Order quantity
-  - Volatility setting
-  - Fee tier selection
+### Metrics Collection
+```python
+class PerformanceMonitor:
+    def __init__(self):
+        self.metrics = {
+            'latency': [],
+            'throughput': 0,
+            'errors': 0,
+            'start_time': time.time()
+        }
+        
+    def record_latency(self, start_time):
+        latency = (time.time() - start_time) * 1000
+        self.metrics['latency'].append(latency)
+        if len(self.metrics['latency']) > 100:
+            self.metrics['latency'].pop(0)
+            
+    def get_statistics(self):
+        return {
+            'avg_latency': np.mean(self.metrics['latency']),
+            'p95_latency': np.percentile(self.metrics['latency'], 95),
+            'throughput': self.metrics['throughput'],
+            'error_rate': self.metrics['errors'] / self.metrics['throughput']
+        }
+```
 
-- Right panel: Output metrics
-  - Expected slippage
-  - Expected fees
-  - Market impact
-  - Net cost
-  - Maker/Taker ratio
-  - Processing latency
-
-## Performance Optimizations
+### Performance Optimization Techniques
 
 1. **Data Processing**
-   - Efficient orderbook data structures
+   - Queue-based architecture for non-blocking operations
+   - Efficient data structures for orderbook management
    - Batch processing of updates
    - Memory-efficient feature calculation
-   - Optimized numerical computations
 
-2. **UI Updates**
-   - Asynchronous data processing
-   - Efficient UI update scheduling
-   - Minimal UI thread blocking
-   - Smooth real-time updates
-
-3. **Model Efficiency**
+2. **Model Calculations**
    - Incremental model updates
    - Efficient feature extraction
-   - Optimized regression calculations
+   - Optimized numerical computations
    - Memory-efficient data storage
 
-## Installation
+3. **UI Updates**
+   - Throttled updates (100ms interval)
+   - Efficient rendering
+   - Resource cleanup
+   - Minimal UI thread blocking
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/goquant-simulator.git
-   cd goquant-simulator
-   ```
+## Error Handling
 
-2. Create a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+### WebSocket Error Recovery
+```python
+async def handle_websocket_error(self, error):
+    if isinstance(error, websockets.exceptions.ConnectionClosed):
+        logger.error("Connection closed, attempting to reconnect...")
+        await self.reconnect()
+    elif isinstance(error, asyncio.TimeoutError):
+        logger.warning("Connection timeout, checking heartbeat...")
+        if time.time() - self.last_message_time > self.heartbeat_interval:
+            await self.reconnect()
+    else:
+        logger.error(f"Unexpected error: {error}")
+        await self.reconnect()
+```
 
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Data Validation
+```python
+def validate_orderbook(self, asks, bids):
+    if not asks or not bids:
+        raise ValueError("Empty orderbook")
+        
+    # Check price levels
+    for price, qty in asks + bids:
+        if price <= 0 or qty <= 0:
+            raise ValueError(f"Invalid price/quantity: {price}, {qty}")
+            
+    # Check spread
+    spread = (asks[0][0] - bids[0][0]) / bids[0][0]
+    if spread > 0.01:  # 1% spread
+        logger.warning(f"Large spread detected: {spread:.2%}")
+```
 
-## Usage
+## Future Improvements
 
-1. Start the simulator:
-   ```bash
-   python src/main.py
-   ```
+### 1. Model Enhancements
+- Integration with machine learning models
+- Advanced market impact models
+- Custom fee structures
+- Real-time model adaptation
 
-2. Configure input parameters:
-   - Select exchange (OKX)
-   - Choose trading pair
-   - Set order quantity
-   - Adjust volatility
-   - Select fee tier
+### 2. Performance Optimizations
+- Parallel processing of orderbook updates
+- GPU acceleration for model calculations
+- Memory optimization for large orderbooks
+- Network optimization for WebSocket connection
 
-3. Monitor output metrics:
-   - Real-time slippage estimates
-   - Fee calculations
-   - Market impact analysis
-   - Maker/Taker predictions
-   - Processing latency
-
-## Model Details
-
-### Almgren-Chriss Model
-
-The market impact model implements the Almgren-Chriss framework with:
-
-- Temporary impact: η * (Q/V) * √(Q/T)
-- Permanent impact: γ * (Q/V)
-- Optimal execution: √(ησ/γ)
-
-Where:
-- η: Temporary impact parameter
-- γ: Permanent impact parameter
-- Q: Order quantity
-- V: Market volume
-- T: Time horizon
-- σ: Volatility
-
-### Slippage Model
-
-The slippage prediction uses quantile regression with features:
-
-- Normalized spread
-- Orderbook imbalance
-- Relative order size
-- Price pressure indicators
-- Volume profile
-
-### Maker/Taker Model
-
-The maker/taker prediction uses logistic regression with features:
-
-- Spread
-- Orderbook depth
-- Volume imbalance
-- Price volatility
-- Total volume
-
-## Performance Metrics
-
-The simulator tracks several performance metrics:
-
-1. **Processing Latency**
-   - Data processing time
-   - Model update time
-   - UI update time
-   - End-to-end latency
-
-2. **Model Accuracy**
-   - Slippage prediction error
-   - Market impact estimation
-   - Maker/Taker prediction accuracy
-   - Fee calculation precision
-
-3. **System Performance**
-   - Memory usage
-   - CPU utilization
-   - Network bandwidth
-   - UI responsiveness
+### 3. Feature Additions
+- Multiple exchange support
+- Custom trading strategies
+- Historical data analysis
+- Backtesting capabilities
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Commit your changes
+3. Commit changes
 4. Push to the branch
 5. Create a Pull Request
 
-## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
 

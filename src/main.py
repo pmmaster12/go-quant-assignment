@@ -34,6 +34,12 @@ class TradeSimulator:
         # Data structures
         self.data_queue = queue.Queue()
         self.latency_measurements = []
+        self.performance_metrics = {
+            'total_messages': 0,
+            'processed_messages': 0,
+            'errors': 0,
+            'start_time': time.time()
+        }
         
         # Set up WebSocket connection
         self.setup_websocket()
@@ -42,6 +48,26 @@ class TradeSimulator:
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_ui)
         self.timer.start(100)  # Update every 100ms
+        
+        # Set up cleanup
+        self.app.aboutToQuit.connect(self.cleanup)
+
+    def cleanup(self):
+        """Cleanup resources before application exit"""
+        logger.info("Cleaning up resources...")
+        if self.orderbook_client:
+            self.orderbook_client.running = False
+            # Wait for WebSocket thread to finish
+            time.sleep(0.5)
+        
+        # Log final performance metrics
+        runtime = time.time() - self.performance_metrics['start_time']
+        logger.info(f"Performance Summary:")
+        logger.info(f"Runtime: {runtime:.2f} seconds")
+        logger.info(f"Total Messages: {self.performance_metrics['total_messages']}")
+        logger.info(f"Processed Messages: {self.performance_metrics['processed_messages']}")
+        logger.info(f"Error Rate: {(self.performance_metrics['errors'] / self.performance_metrics['total_messages'] * 100):.2f}%")
+        logger.info(f"Average Latency: {self.calculate_latency():.2f}ms")
 
     def setup_websocket(self):
         url = "wss://ws.gomarket-cpp.goquant.io/ws/l2-orderbook/okx/BTC-USDT-SWAP"
@@ -65,6 +91,7 @@ class TradeSimulator:
 
     def process_orderbook_data(self, data: dict):
         start_time = time.time()
+        self.performance_metrics['total_messages'] += 1
         
         try:
             # Validate orderbook data
@@ -151,9 +178,12 @@ class TradeSimulator:
             data['bids'] = bids
             
             self.data_queue.put(data)
+            self.performance_metrics['processed_messages'] += 1
+            
         except Exception as e:
             logger.error(f"Unexpected error in process_orderbook_data: {e}")
             traceback.print_exc()
+            self.performance_metrics['errors'] += 1
 
     def update_ui(self):
         try:
