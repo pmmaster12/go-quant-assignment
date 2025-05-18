@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (
     QLabel, QLineEdit, QComboBox, QGroupBox, QFrame, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
+from PyQt5.QtGui import QDoubleValidator
 
 class SignalEmitter(QObject):
     parameters_changed = pyqtSignal(dict)
@@ -68,6 +69,9 @@ class MainWindow(QMainWindow):
                 padding: 5px 8px;
                 font-size: 15px;
             }
+            QLineEdit:invalid {
+                border: 1px solid #ff5555;
+            }
         """)
 
         layout = QVBoxLayout()
@@ -88,9 +92,11 @@ class MainWindow(QMainWindow):
 
         self.quantity_input = QLineEdit()
         self.quantity_input.setText("100")
+        self.quantity_input.setValidator(QDoubleValidator(0.0, 1000000.0, 2))
 
         self.volatility_input = QLineEdit()
         self.volatility_input.setText("0.02")
+        self.volatility_input.setValidator(QDoubleValidator(0.0, 1.0, 4))
 
         self.fee_combo = QComboBox()
         self.fee_combo.addItems(["Tier 1", "Tier 2", "Tier 3"])

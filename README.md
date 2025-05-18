@@ -1,212 +1,207 @@
-# Trade Simulator
+# GoQuant Trade Simulator
 
-A high-performance trade simulator leveraging real-time market data to estimate transaction costs and market impact. This system connects to WebSocket endpoints that stream full L2 orderbook data for cryptocurrency exchanges.
+A high-performance trade simulator that leverages real-time market data to estimate transaction costs and market impact for cryptocurrency trading.
 
 ## Features
 
 - Real-time L2 orderbook data processing
-- Market impact estimation using Almgren-Chriss model
-- Slippage calculation using regression modeling
-- Fee calculation based on exchange tiers
+- Sophisticated market impact modeling using Almgren-Chriss
+- Slippage prediction using quantile regression
+- Fee calculation based on OKX fee tiers
 - Maker/Taker proportion prediction
-- Performance monitoring and optimization
+- Latency measurement and monitoring
+- Modern PyQt5-based user interface
 
-## Prerequisites
+## Architecture
 
-- Python 3.8 or higher
-- VPN connection (required for OKX access)
+The simulator is built with a modular architecture consisting of several key components:
+
+### Core Components
+
+1. **WebSocket Client**
+   - Connects to OKX's WebSocket API
+   - Processes real-time L2 orderbook data
+   - Implements automatic reconnection
+   - Measures network latency
+
+2. **Market Impact Model**
+   - Implements Almgren-Chriss model
+   - Calculates temporary and permanent market impact
+   - Optimizes execution schedule
+   - Considers volatility and order size
+
+3. **Slippage Model**
+   - Uses quantile regression for prediction
+   - Considers orderbook depth and imbalance
+   - Adapts to market conditions
+   - Provides confidence intervals
+
+4. **Fee Calculator**
+   - Implements OKX's fee tier structure
+   - Calculates maker/taker fees
+   - Supports volume-based tier selection
+   - Handles different order types
+
+5. **Maker/Taker Predictor**
+   - Uses logistic regression
+   - Considers orderbook features
+   - Adapts to market conditions
+   - Provides probability estimates
+
+### User Interface
+
+The UI is built with PyQt5 and features:
+
+- Left panel: Input parameters
+  - Exchange selection
+  - Asset selection
+  - Order quantity
+  - Volatility setting
+  - Fee tier selection
+
+- Right panel: Output metrics
+  - Expected slippage
+  - Expected fees
+  - Market impact
+  - Net cost
+  - Maker/Taker ratio
+  - Processing latency
+
+## Performance Optimizations
+
+1. **Data Processing**
+   - Efficient orderbook data structures
+   - Batch processing of updates
+   - Memory-efficient feature calculation
+   - Optimized numerical computations
+
+2. **UI Updates**
+   - Asynchronous data processing
+   - Efficient UI update scheduling
+   - Minimal UI thread blocking
+   - Smooth real-time updates
+
+3. **Model Efficiency**
+   - Incremental model updates
+   - Efficient feature extraction
+   - Optimized regression calculations
+   - Memory-efficient data storage
 
 ## Installation
 
 1. Clone the repository:
-```bash
-git clone <repository-url>
-cd trade-simulator
-```
+   ```bash
+   git clone https://github.com/yourusername/goquant-simulator.git
+   cd goquant-simulator
+   ```
 
-2. Create and activate a virtual environment:
-```bash
-python -m venv venv
-# On Windows:
-venv\Scripts\activate
-# On Unix or MacOS:
-source venv/bin/activate
-```
+2. Create a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
 3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Usage
 
-1. **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+1. Start the simulator:
+   ```bash
+   python src/main.py
+   ```
 
-2. **Activate VPN** (required for OKX access).
+2. Configure input parameters:
+   - Select exchange (OKX)
+   - Choose trading pair
+   - Set order quantity
+   - Adjust volatility
+   - Select fee tier
 
-3. **Run the application:**
-    ```bash
-    python src/main.py
-    ```
+3. Monitor output metrics:
+   - Real-time slippage estimates
+   - Fee calculations
+   - Market impact analysis
+   - Maker/Taker predictions
+   - Processing latency
 
-4. **Logs** will be generated in `trade_simulator.log`.
+## Model Details
 
-## Input Parameters
+### Almgren-Chriss Model
 
-- **Exchange:** OKX (default)
-- **Asset:** BTC-USDT-SWAP (default)
-- **Order Type:** Market (default)
-- **Quantity:** User input (USD equivalent)
-- **Volatility:** User input
-- **Fee Tier:** User selection
+The market impact model implements the Almgren-Chriss framework with:
 
-## Output Parameters
+- Temporary impact: η * (Q/V) * √(Q/T)
+- Permanent impact: γ * (Q/V)
+- Optimal execution: √(ησ/γ)
 
-- **Expected Slippage:** Estimated using regression modeling
-- **Expected Fees:** Calculated based on fee tier
-- **Market Impact:** Estimated using the Almgren-Chriss model
-- **Net Cost:** Sum of slippage, fees, and market impact
-- **Maker/Taker Proportion:** Predicted using logistic regression
-- **Internal Latency:** Processing time per tick
+Where:
+- η: Temporary impact parameter
+- γ: Permanent impact parameter
+- Q: Order quantity
+- V: Market volume
+- T: Time horizon
+- σ: Volatility
 
-## Models and Algorithms
+### Slippage Model
 
-### **Almgren-Chriss Market Impact Model**
-- Used to estimate the cost of executing large orders in a market.
-- Considers both temporary and permanent market impact.
-- See: [Understanding Almgren-Chriss Model](https://www.linkedin.com/pulse/understanding-almgren-chriss-model-optimal-portfolio-execution-pal-pmeqc/)
+The slippage prediction uses quantile regression with features:
 
-### **Slippage Estimation**
-- Uses linear or quantile regression to estimate the difference between expected and actual execution price.
+- Normalized spread
+- Orderbook imbalance
+- Relative order size
+- Price pressure indicators
+- Volume profile
 
-### **Maker/Taker Proportion**
-- Uses logistic regression to predict the likelihood of an order being a maker or taker.
+### Maker/Taker Model
 
-### **Fee Calculation**
-- Rule-based, according to OKX fee tiers.
+The maker/taker prediction uses logistic regression with features:
 
-## Performance Monitoring
+- Spread
+- Orderbook depth
+- Volume imbalance
+- Price volatility
+- Total volume
 
-- **Data processing latency**
-- **UI update latency**
-- **End-to-end simulation loop latency**
-- All metrics are logged and can be reviewed in `trade_simulator.log`.
+## Performance Metrics
 
-## Logging
+The simulator tracks several performance metrics:
 
-- All major events, errors, and performance metrics are logged to `trade_simulator.log` and the console.
-- Logging is set up in `src/logger.py`.
+1. **Processing Latency**
+   - Data processing time
+   - Model update time
+   - UI update time
+   - End-to-end latency
 
-## Development & Testing
+2. **Model Accuracy**
+   - Slippage prediction error
+   - Market impact estimation
+   - Maker/Taker prediction accuracy
+   - Fee calculation precision
 
-- **Unit tests** are in the `tests/` directory.
-- Run tests with:
-    ```bash
-    python -m pytest tests/
-    ```
-
-## Troubleshooting
-
-- If output parameters do not update, check:
-    - VPN connection
-    - WebSocket endpoint accessibility
-    - Log file for errors
-
-## License
-
-MIT License
+3. **System Performance**
+   - Memory usage
+   - CPU utilization
+   - Network bandwidth
+   - UI responsiveness
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch
+2. Create a feature branch
 3. Commit your changes
 4. Push to the branch
 5. Create a Pull Request
 
-## Contact
-
-For questions or support, please open an issue or contact the maintainer.
-
-## Project Structure
-
-```
-trade_simulator/
-├── README.md
-├── requirements.txt
-├── setup.py
-├── src/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── config.py
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── market_impact.py
-│   │   ├── slippage.py
-│   │   └── maker_taker.py
-│   ├── websocket/
-│   │   ├── __init__.py
-│   │   └── orderbook_client.py
-│   ├── ui/
-│   │   ├── __init__.py
-│   │   └── main_window.py
-│   └── utils/
-│       ├── __init__.py
-│       └── performance.py
-└── tests/
-    └── __init__.py
-```
-
-## Components
-
-### Market Impact Model
-The Almgren-Chriss model is implemented to estimate market impact, considering:
-- Temporary market impact
-- Permanent market impact
-- Optimal execution scheduling
-
-### Slippage Estimation
-Uses regression modeling to predict slippage based on:
-- Order size
-- Market depth
-- Volatility
-
-### Fee Calculation
-Implements rule-based fee models based on:
-- Exchange fee tiers
-- Trading volume
-- Asset type
-
-### Performance Monitoring
-Tracks:
-- Data processing latency
-- UI update latency
-- End-to-end simulation loop latency
-
-## Development
-
-### Running Tests
-```bash
-python -m pytest tests/
-```
-
-### Code Style
-This project follows PEP 8 style guidelines. To check your code:
-```bash
-flake8 src/
-```
-
 ## License
 
-MIT License
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Contributing
+## Acknowledgments
 
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request 
+- OKX for providing market data
+- Almgren and Chriss for their market impact model
+- PyQt5 team for the UI framework
+- Python community for excellent libraries 
