@@ -1,4 +1,5 @@
 import pytest
+import os
 from src.models.market_impact import AlmgrenChrissModel
 
 def test_market_impact_calculation():
