@@ -83,15 +83,14 @@
 
 ### 3.1 Latency Distribution
 ```
-Latency (ms)
-    ^
-    │    █
-    │   ███
-    │  █████
-    │ ███████
-    │█████████
-    └───────────────────────────>
-     0   2   4   6   8   10  12
+┌─────────────────────────────────────────────┐
+│              Latency Distribution            │
+├─────────────────────────────────────────────┤
+│ Average Processing Time: 2.5ms              │
+│ 95th Percentile: 5.1ms                      │
+│ 99th Percentile: 8.3ms                      │
+│ Maximum Observed: 15.2ms                    │
+└─────────────────────────────────────────────┘
 ```
 
 ### 3.2 Resource Usage
@@ -312,13 +311,14 @@ class AlmgrenChrissModel:
 
 #### Resource Usage
 ```
-┌─────────────────┬───────────┬───────────┐
-│ Resource        │ Usage     │ Peak      │
-├─────────────────┼───────────┼───────────┤
-│ Memory          │ 200MB     │ 250MB     │
-│ CPU             │ 15%       │ 25%       │
-│ Network         │ 50KB/s    │ 100KB/s   │
-└─────────────────┴───────────┴───────────┘
+┌─────────────────────────────────────────────┐
+│              Memory Distribution             │
+├─────────────────────────────────────────────┤
+│ WebSocket Client:    50MB  (25%)            │
+│ Data Processor:     100MB  (50%)            │
+│ Trading Models:      30MB  (15%)            │
+│ UI Components:       20MB  (10%)            │
+└─────────────────────────────────────────────┘
 ```
 
 ## 9. Technical Features
